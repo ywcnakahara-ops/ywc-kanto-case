@@ -1,0 +1,130 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Search, X, ChevronRight, Building2 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import { getCurrentProfile } from "@/lib/auth";
+import { StatusBadge, DueProgress, STATUS_LIST } from "@/components/StatusParts";
+import { Header, BottomNav } from "@/components/Nav";
+
+export default function CasesListPage() {
+  const router = useRouter();
+  const [profile, setProfile] = useState(undefined); // undefined=読込中, null=未ログイン
+  const [cases, setCases] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [keyword, setKeyword] = useState("");
+  const [status, setStatus] = useState("全て");
+
+  useEffect(() => {
+    (async () => {
+      const p = await getCurrentProfile();
+      if (!p) {
+        router.replace("/login/");
+        return;
+      }
+      setProfile(p);
+
+      // RLSにより、管理者は全件・取引先は自社案件のみが返る
+      const { data, error } = await supabase
+        .from("cases")
+        .select("id, title, assignee_id, status, start_date, due_date, note, clients(name)")
+        .order("due_date", { ascending: true });
+
+      if (!error && data) setCases(data);
+      setLoading(false);
+    })();
+  }, [router]);
+
+  const filtered = useMemo(() => {
+    return cases
+      .filter((c) => (status === "全て" ? true : c.status === status))
+      .filter((c) => {
+        if (!keyword) return true;
+        const k = keyword.toLowerCase();
+        return (
+          c.title.toLowerCase().includes(k) ||
+          (c.clients?.name ?? "").toLowerCase().includes(k)
+        );
+      });
+  }, [cases, status, keyword]);
+
+  if (!profile) {
+    return <div className="p-6 text-center text-sm text-slateg">読み込み中...</div>;
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col">
+      <Header title="案件一覧" />
+
+      <div className="sticky top-14 z-10 bg-inkbg px-3 pb-2 pt-3">
+        <div className="flex h-11 items-center gap-2 rounded-xl border border-inkline bg-white px-3">
+          <Search size={16} color="#767B85" />
+          <input
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder="案件名・取引先で検索"
+            className="flex-1 text-sm outline-none"
+          />
+          {keyword && (
+            <button onClick={() => setKeyword("")}>
+              <X size={14} color="#767B85" />
+            </button>
+          )}
+        </div>
+        <div className="no-scrollbar mt-2 flex gap-2 overflow-x-auto pb-1">
+          {["全て", ...STATUS_LIST].map((s) => {
+            const active = status === s;
+            return (
+              <button
+                key={s}
+                onClick={() => setStatus(s)}
+                className="h-8 whitespace-nowrap rounded-full border px-3 text-xs font-bold"
+                style={{
+                  background: active ? "#D62839" : "#fff",
+                  color: active ? "#fff" : "#767B85",
+                  borderColor: active ? "#D62839" : "#E4E5E8",
+                }}
+              >
+                {s}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="px-3 pb-1 text-xs font-bold text-slateg">
+        {loading ? "読み込み中..." : `${filtered.length}件の案件`}
+      </div>
+
+      <div className="flex flex-1 flex-col gap-3 px-3 pb-6">
+        {!loading && filtered.length === 0 && (
+          <div className="py-16 text-center text-sm text-slateg">
+            該当する案件がありません。
+          </div>
+        )}
+        {filtered.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => router.push(`/cases/detail/?id=${c.id}`)}
+            className="rounded-2xl border border-inkline bg-white p-4 text-left shadow-sm active:scale-[0.99]"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <StatusBadge status={c.status} />
+              <ChevronRight size={16} color="#767B85" />
+            </div>
+            <div className="mt-2 text-[15px] font-bold leading-snug text-ink">
+              {c.title}
+            </div>
+            <div className="mt-1 flex items-center gap-1 text-xs text-slateg">
+              <Building2 size={13} /> {c.clients?.name ?? "-"}
+            </div>
+            <DueProgress startDate={c.start_date} dueDate={c.due_date} />
+          </button>
+        ))}
+      </div>
+
+      <BottomNav active="list" role={profile.role} />
+    </div>
+  );
+}
