@@ -1,0 +1,8 @@
+{
+  "name": "ywc-kanto-case",
+  "compatibility_date": "2026-07-17",
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "404-page"
+  }
+}
