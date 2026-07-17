@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, X, ChevronRight, Building2 } from "lucide-react";
+import { Search, X, ChevronRight, Building2, MapPin } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { getCurrentProfile } from "@/lib/auth";
-import { StatusBadge, DueProgress, STATUS_LIST } from "@/components/StatusParts";
+import { RecruitBadge, RECRUIT_LIST } from "@/components/StatusParts";
 import { Header, BottomNav } from "@/components/Nav";
 
 export default function CasesListPage() {
   const router = useRouter();
-  const [profile, setProfile] = useState(undefined); // undefined=読込中, null=未ログイン
+  const [profile, setProfile] = useState(undefined);
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [keyword, setKeyword] = useState("");
@@ -25,11 +25,10 @@ export default function CasesListPage() {
       }
       setProfile(p);
 
-      // RLSにより、管理者は全件・取引先は自社案件のみが返る
       const { data, error } = await supabase
         .from("cases")
-        .select("id, title, assignee_id, status, start_date, due_date, note, clients(name)")
-        .order("due_date", { ascending: true });
+        .select("id, title, recruit_status, flow_restriction, work_location, unit_price, updated_at, clients(name)")
+        .order("updated_at", { ascending: false });
 
       if (!error && data) setCases(data);
       setLoading(false);
@@ -38,7 +37,7 @@ export default function CasesListPage() {
 
   const filtered = useMemo(() => {
     return cases
-      .filter((c) => (status === "全て" ? true : c.status === status))
+      .filter((c) => (status === "全て" ? true : c.recruit_status === status))
       .filter((c) => {
         if (!keyword) return true;
         const k = keyword.toLowerCase();
@@ -73,7 +72,7 @@ export default function CasesListPage() {
           )}
         </div>
         <div className="no-scrollbar mt-2 flex gap-2 overflow-x-auto pb-1">
-          {["全て", ...STATUS_LIST].map((s) => {
+          {["全て", ...RECRUIT_LIST].map((s) => {
             const active = status === s;
             return (
               <button
@@ -110,16 +109,24 @@ export default function CasesListPage() {
             className="rounded-2xl border border-inkline bg-white p-4 text-left shadow-sm active:scale-[0.99]"
           >
             <div className="flex items-center justify-between gap-2">
-              <StatusBadge status={c.status} />
+              <RecruitBadge status={c.recruit_status} />
               <ChevronRight size={16} color="#767B85" />
             </div>
             <div className="mt-2 text-[15px] font-bold leading-snug text-ink">
               {c.title}
             </div>
-            <div className="mt-1 flex items-center gap-1 text-xs text-slateg">
-              <Building2 size={13} /> {c.clients?.name ?? "-"}
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slateg">
+              <span className="flex items-center gap-1"><Building2 size={13} /> {c.clients?.name ?? "-"}</span>
+              {c.work_location && (
+                <span className="flex items-center gap-1"><MapPin size={13} /> {c.work_location}</span>
+              )}
             </div>
-            <DueProgress startDate={c.start_date} dueDate={c.due_date} />
+            {(c.flow_restriction || c.unit_price) && (
+              <div className="mt-1 text-xs text-slateg">
+                {c.flow_restriction && <span>商流制限：{c.flow_restriction}　</span>}
+                {c.unit_price && <span>単価：{c.unit_price}</span>}
+              </div>
+            )}
           </button>
         ))}
       </div>
