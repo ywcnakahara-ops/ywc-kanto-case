@@ -25,9 +25,15 @@ export default function CasesListPage() {
       }
       setProfile(p);
 
+      // 取引先(閲覧側)には会社名を返さないよう、選択する列を役割ごとに切り替える
+      const columns =
+        p.role === "admin"
+          ? "id, title, recruit_status, flow_restriction, work_location, unit_price, updated_at, clients(name)"
+          : "id, title, recruit_status, flow_restriction, work_location, unit_price, updated_at";
+
       const { data, error } = await supabase
         .from("cases")
-        .select("id, title, recruit_status, flow_restriction, work_location, unit_price, updated_at, clients(name)")
+        .select(columns)
         .order("updated_at", { ascending: false });
 
       if (!error && data) setCases(data);
@@ -62,7 +68,7 @@ export default function CasesListPage() {
           <input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="案件名・取引先で検索"
+            placeholder="案件名で検索"
             className="flex-1 text-sm outline-none"
           />
           {keyword && (
@@ -116,7 +122,9 @@ export default function CasesListPage() {
               {c.title}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slateg">
-              <span className="flex items-center gap-1"><Building2 size={13} /> {c.clients?.name ?? "-"}</span>
+              {profile.role === "admin" && (
+                <span className="flex items-center gap-1"><Building2 size={13} /> {c.clients?.name ?? "-"}</span>
+              )}
               {c.work_location && (
                 <span className="flex items-center gap-1"><MapPin size={13} /> {c.work_location}</span>
               )}

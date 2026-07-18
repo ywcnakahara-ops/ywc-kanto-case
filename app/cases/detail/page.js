@@ -26,9 +26,12 @@ function DetailInner() {
       }
       setProfile(p);
 
+      // 取引先(閲覧側)には会社名を返さないよう、選択する列を役割ごとに切り替える
+      const columns = p.role === "admin" ? "*, clients(name)" : "*";
+
       const { data } = await supabase
         .from("cases")
-        .select("*, clients(name)")
+        .select(columns)
         .eq("id", id)
         .single();
 
@@ -89,7 +92,9 @@ function DetailInner() {
 
         <div className="mt-3 divide-y divide-inkline rounded-2xl border border-inkline bg-white">
           <Row label="更新日" value={item.updated_at ? new Date(item.updated_at).toLocaleDateString("ja-JP") : "-"} mono />
-          <Row label="取引先" value={item.clients?.name ?? "-"} />
+          {profile.role === "admin" && (
+            <Row label="取引先" value={item.clients?.name ?? "-"} />
+          )}
           <Row label="商流制限" value={item.flow_restriction || "（なし）"} />
           <Row label="業務内容" value={item.work_content || "（なし）"} multiline />
           <Row label="稼働場所" value={item.work_location || "-"} />
